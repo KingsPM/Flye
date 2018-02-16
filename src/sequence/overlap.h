@@ -180,17 +180,18 @@ public:
 	OverlapDetector(const SequenceContainer& seqContainer,
 					const VertexIndex& vertexIndex,
 					int maxJump, int minOverlap, int maxOverhang,
-					int gapSize, bool keepAlignment):
+					int gapSize, float overlapDivThreshold, bool keepAlignment):
 		_maxJump(maxJump),
 		_minOverlap(minOverlap),
 		_maxOverhang(maxOverhang),
 		_gapSize(gapSize),
+		_overlapDivergenceThreshold(overlapDivThreshold),
 		_checkOverhang(maxOverhang > 0),
 		_keepAlignment(keepAlignment),
 		_vertexIndex(vertexIndex),
 		_seqContainer(seqContainer)
 	{
-		this->preComputeKmerDivergence();
+		//this->preComputeKmerDivergence();
 	}
 
 	std::vector<OverlapRange> 
@@ -210,14 +211,15 @@ private:
 	JumpRes jumpTest(int32_t currentPrev, int32_t currentNext,
 				     int32_t extensionPrev, int32_t extensionNext) const;
 
-	void  preComputeKmerDivergence();
-	float kmerToSeqDivergence(float kmerDivergence) const;
+	//void  preComputeKmerDivergence();
+	//float kmerToSeqDivergence(float kmerDivergence) const;
 	std::vector<float> _seqToKmerDiv;
 
 	const int _maxJump;
 	const int _minOverlap;
 	const int _maxOverhang;
 	const int _gapSize;
+	const float _overlapDivergenceThreshold;
 	const bool _checkOverhang;
 	const bool _keepAlignment;
 

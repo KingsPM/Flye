@@ -110,14 +110,15 @@ KmerPosition KmerIterator::operator*() const
 
 KmerIterator IterKmers::begin()
 {
-	if (_sequence.length() < Parameters::get().kmerSize) 
+	if (_sequence.length() < Parameters::get().kmerSize + _start) 
 		return this->end();
 
-	return KmerIterator(&_sequence, 0);
+	return KmerIterator(&_sequence, _start);
 }
 
 KmerIterator IterKmers::end()
 {
-	return KmerIterator(&_sequence, _sequence.length() - 
-									Parameters::get().kmerSize);
+	size_t end = _length == std::string::npos ? 
+					_sequence.length() : _length + _start;
+	return KmerIterator(&_sequence, end - Parameters::get().kmerSize);
 }

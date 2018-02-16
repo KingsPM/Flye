@@ -171,7 +171,7 @@ void Extender::assembleContigs(bool addSingletons)
 	cuckoohash_map<FastaRecord::Id, size_t> coveredReads;
 	
 	std::mutex indexMutex;
-	auto processRead = [this, &indexMutex, &coveredReads] 
+	auto processRead = [this, &indexMutex, &coveredReads, addSingletons] 
 		(FastaRecord::Id startRead)
 	{
 		if (coveredReads.contains(startRead)) return true;
@@ -238,10 +238,14 @@ void Extender::assembleContigs(bool addSingletons)
 			for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
 			{
 				coveredReads.insert(ovlp.extId, true);
+				coveredReads.insert(ovlp.extId.rc(), true);
 
-				//contained inside the other read - probably repetitive
-				if (ovlp.leftShift > MAX_JUMP &&
-					ovlp.rightShift < -MAX_JUMP) continue;
+				if (!addSingletons)
+				{
+					//contained inside the other read - probably repetitive
+					if (ovlp.leftShift > MAX_JUMP &&
+						ovlp.rightShift < -MAX_JUMP) continue;
+				}
 
 				if (ovlp.leftShift > MAX_JUMP)
 				{
@@ -255,6 +259,32 @@ void Extender::assembleContigs(bool addSingletons)
 				}
 			}
 		}
+
+		/*Logger::get().debug() << "---------Contig reads:";
+		for (auto& readId : exInfo.reads)
+		{
+			Logger::get().debug() << "\t" << _readsContainer.seqName(readId);
+		}
+
+		Logger::get().debug() << "--------Left extended:";
+		for (auto& readId : leftExtended)
+		{
+			Logger::get().debug() << "\t" << _readsContainer.seqName(readId);
+		}
+		Logger::get().debug() << "--------Right extended:";
+		for (auto& readId : rightExtended)
+		{
+			Logger::get().debug() << "\t" << _readsContainer.seqName(readId);
+		}
+		Logger::get().debug() << "---------Overlaps:";
+		for (auto& readId : exInfo.reads)
+		{
+				for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
+			{
+				Logger::get().debug() << "\t" << _readsContainer.seqName(ovlp.extId);
+			}
+		}*/
+
 		for (auto& read : rightExtended)
 		{
 			if (leftExtended.count(read)) _innerReads.insert(read, true);
@@ -300,8 +330,16 @@ void Extender::assembleContigs(bool addSingletons)
 						abs(ovlp.rightShift) < Parameters::get().minimumOverlap)
 					{
 						coveredLocal.insert(ovlp.extId);
+						coveredLocal.insert(ovlp.extId.rc());
 					}
 				}
+				/*Logger::get().debug() << "Singleton: " << _readsContainer.seqName(indexPair.first);
+				Logger::get().debug() << "---------Overlaps:";
+				for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(indexPair.first))
+				{
+					Logger::get().debug() << "\t" << _readsContainer.seqName(ovlp.extId);
+				}*/
+
 				ExtensionInfo path;
 				path.reads.push_back(indexPair.first);
 				_readLists.push_back(path);

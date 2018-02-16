@@ -260,7 +260,9 @@ int main(int argc, char** argv)
 						 Parameters::get().minimumOverlap,
 						 (int)Config::get("maximum_overhang"),
 						 (int)Config::get("assemble_gap"),
+						 0.30f,
 						 /*store alignment*/ false);
+	ovlp.setDumpFile("../reads-reads-div.txt");
 	OverlapContainer readOverlaps(ovlp, readsContainer, /*only max*/ true);
 
 	Extender extender(readsContainer, readOverlaps, coverage, 

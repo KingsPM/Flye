@@ -13,6 +13,117 @@
 #include "../common/utils.h"
 #include "../common/parallel.h"
 #include "../common/disjoint_set.h"
+#include "../common/matrix.h"
+
+namespace
+{
+	//banded glocal alignment
+	void pairwiseAlignment(const std::string& seqOne, const std::string& seqTwo,
+						   std::string& outOne, std::string& outTwo, 
+						   int bandWidth)
+	{
+		static const int32_t MATCH = 5;
+		static const int32_t SUBST = -5;
+		static const int32_t INDEL = -3;
+
+		static const int32_t matchScore[] = {SUBST, MATCH};
+		static const int32_t indelScore[] = {INDEL, 0};
+
+		const size_t numRows = seqOne.length() + 1;
+		const size_t numCols = 2 * bandWidth + 1;
+
+		Matrix<char> backtrackMatrix(numRows, numCols);
+		std::vector<int32_t> scoreRowOne(numCols, 0);
+		std::vector<int32_t> scoreRowTwo(numCols, 0);
+
+
+		for (size_t i = 0; i < numRows; ++i) 
+		{
+			size_t j = std::max(0, bandWidth - (int)i);
+			backtrackMatrix.at(i, j) = 1;
+		}
+		for (size_t i = 0; i < numCols; ++i) 
+		{
+			backtrackMatrix.at(0, i) = 0;
+		}
+
+		//filling DP matrices
+		for (size_t i = 1; i < numRows; ++i)
+		{
+			int leftOverhang = bandWidth - (int)i + 1;
+			int rightOverhand = (int)i + bandWidth - (int)seqTwo.length();
+			size_t colLeft = std::max(0, leftOverhang);
+			size_t colRight = std::min((int)numCols, (int)numCols - rightOverhand);
+
+			for (int j = colLeft; j < (int)colRight; ++j)
+			{
+				size_t twoCoord = j + i - bandWidth;
+				int32_t cross = scoreRowOne[j] + 
+								matchScore[seqOne[i - 1] == seqTwo[twoCoord - 1]];
+				char maxStep = 2;
+				int32_t maxScore = cross;
+
+				if (j < (int)numCols - 1) //up
+				{
+					int32_t up = scoreRowOne[j + 1] +
+								 indelScore[twoCoord == seqTwo.length()];
+					if (up > maxScore)
+					{
+						maxStep = 1;
+						maxScore = up;
+					}
+				}
+
+				if (j > 0) //left
+				{
+					int32_t left = scoreRowTwo[j - 1] + 
+								   indelScore[i == seqOne.length()];
+					if (left > maxScore)
+					{
+						maxStep = 0;
+						maxScore = left;
+					}
+				}
+
+				scoreRowTwo[j] = maxScore;
+				backtrackMatrix.at(i, j) = maxStep;
+			}
+			scoreRowOne.swap(scoreRowTwo);
+		}
+
+		//backtrack
+		outOne.reserve(seqOne.length() * 3 / 2);
+		outTwo.reserve(seqTwo.length() * 3 / 2);
+
+		int i = numRows - 1;
+		int j = bandWidth - (int)numRows + (int)seqTwo.length() + 1;
+		while (i != 0 || j != bandWidth) 
+		{
+			size_t twoCoord = j + i - bandWidth;
+			if(backtrackMatrix.at(i, j) == 1) //up
+			{
+				outOne += seqOne[i - 1];
+				outTwo += '-';
+				i -= 1;
+				j += 1;
+			}
+			else if (backtrackMatrix.at(i, j) == 0) //left
+			{
+				outOne += '-';
+				outTwo += seqTwo[twoCoord - 1];
+				j -= 1;
+			}
+			else	//cross
+			{
+				outOne += seqOne[i - 1];
+				outTwo += seqTwo[twoCoord - 1];
+				i -= 1;
+			}
+		}
+		std::reverse(outOne.begin(), outOne.end());
+		std::reverse(outTwo.begin(), outTwo.end());
+	}
+}
 
 
 //pre-filtering
@@ -102,7 +213,6 @@ namespace
 
 		OverlapRange ovlp;
 		std::vector<int32_t> shifts;
-		std::vector<int32_t> sharedKmers;
 	};
 }
 
@@ -198,7 +308,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				extPaths[maxCloseId].ovlp.extEnd = extPos;
 				extPaths[maxCloseId].ovlp.score = maxCloseScore;
 				extPaths[maxCloseId].shifts.push_back(curPos - extPos);
-				extPaths[maxCloseId].sharedKmers.push_back(curPos);
 
 				if (_keepAlignment)
 				{
@@ -218,7 +327,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				extPaths.back().ovlp.extEnd = extPos;
 				extPaths.back().ovlp.score = maxFarScore;
 				extPaths.back().shifts.push_back(curPos - extPos);
-				extPaths.back().sharedKmers.push_back(curPos);
 
 				if (_keepAlignment)
 				{
@@ -280,29 +388,75 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	}
 
 	//copmutes sequence divergence rate
-	auto computeSequenceDiv = [this](DPRecord& rec)
+	auto computeSequenceDiv = [this, &fastaRec](DPRecord& rec)
 	{
-		static const int32_t WND_SIZE = Config::get("maximum_jump");
-		int32_t numWnd = rec.ovlp.curRange() / WND_SIZE + 1;
-		std::vector<int32_t> hist(numWnd, 0);
-		for (auto& pos : rec.sharedKmers) 
+		//test with rela pairwise alignment
+		std::string seqA = fastaRec.sequence.substr(rec.ovlp.curBegin, 
+													rec.ovlp.curRange()).str();
+		std::string seqB = _seqContainer.getSeq(rec.ovlp.extId)
+								.substr(rec.ovlp.extBegin, 
+										rec.ovlp.extRange()).str();
+		std::string alnA;
+		std::string alnB;
+		const int bandWidth = abs((int)seqA.length() - 
+								  (int)seqB.length()) + 
+								  		Config::get("maximum_jump");
+		//std::cout << ">>>>>" << std::endl;
+		pairwiseAlignment(seqA, seqB, alnA, alnB, bandWidth);
+		int matches = 0;
+		for (size_t i = 0; i < alnA.size(); ++i)
 		{
-			++hist[(pos - rec.ovlp.curBegin) / WND_SIZE];
+			if (alnA[i] == alnB[i]) ++matches;
+		}
+		float trueDiv = 1 - (float)matches/ alnA.size();
+
+		//kmer divergence
+		std::unordered_set<Kmer> curKmers;
+		std::unordered_set<Kmer> extKmers;
+		std::unordered_set<Kmer> sharedKmers;
+		for (auto curKmerPos : IterKmers(fastaRec.sequence, rec.ovlp.curBegin,
+										 rec.ovlp.curRange()))
+		{
+			curKmers.insert(curKmerPos.kmer);
+		}
+		for (auto extKmerPos : IterKmers(_seqContainer.getSeq(rec.ovlp.extId),
+										 rec.ovlp.extBegin, rec.ovlp.extRange()))
+		{
+			if (curKmers.count(extKmerPos.kmer)) sharedKmers.insert(extKmerPos.kmer);
+			extKmers.insert(extKmerPos.kmer);
 		}
 
-		double sum = 0;
-		for (auto& wnd : hist)
+		float kmerDiv = ((float)sharedKmers.size() / curKmers.size() + 
+						 (float)sharedKmers.size() / extKmers.size()) / 2;
+		float kmerDistance = 1 - pow(kmerDiv, 1.0 / Parameters::get().kmerSize);
+		
+		if (fabsf(trueDiv - kmerDistance) > 0.05)
 		{
-			//std::cout << " " << wnd << std::endl;
-			int32_t spoiledKmers = WND_SIZE - (wnd * _vertexIndex.getSampleRate());
-			sum += this->kmerToSeqDivergence(((float)spoiledKmers / WND_SIZE));
+			for (size_t i = 0; i < alnA.size() / 100 + 1; ++i)
+			{
+				std::cout << alnA.substr(i * 100, 100) << "\n" 
+					<< alnB.substr(i * 100, 100) << "\n\n";
+			}
 		}
-		float divergence = sum / hist.size();
-		rec.ovlp.divergence = divergence;
-		//std::cout << "div" << divergence << std::endl;
+		std::cout << rec.ovlp.curRange() << "\t" << trueDiv 
+			<< "\t" << kmerDistance << std::endl;
+		rec.ovlp.divergence = kmerDistance;
 	};
 	
 	std::vector<OverlapRange> detectedOverlaps;
+	auto addOverlap = [curLen, computeSequenceDiv, &detectedOverlaps, this]
+		(DPRecord& rec, int32_t extLen)
+	{
+		rec.ovlp.leftShift = median(rec.shifts);
+		rec.ovlp.rightShift = extLen - curLen + 
+								rec.ovlp.leftShift;
+		computeSequenceDiv(rec);
+		if (rec.ovlp.divergence < _overlapDivergenceThreshold)
+		{
+			detectedOverlaps.push_back(rec.ovlp);
+		}
+	};
+
 	for (auto& ap : completedPaths)
 	{
 		int32_t extLen = _seqContainer.seqLen(ap.first);
@@ -312,11 +466,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		{
 			if (!uniqueExtensions)
 			{
-				dpRec.ovlp.leftShift = median(dpRec.shifts);
-				dpRec.ovlp.rightShift = extLen - curLen + 
-										dpRec.ovlp.leftShift;
-				computeSequenceDiv(dpRec);
-				detectedOverlaps.push_back(dpRec.ovlp);
+				addOverlap(dpRec, extLen);
 			}
 			else
 			{
@@ -329,11 +479,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		}
 		if (uniqueExtensions && passedTest)
 		{
-			maxRecord->ovlp.leftShift = median(maxRecord->shifts);
-			maxRecord->ovlp.rightShift = extLen - curLen + 
-									maxRecord->ovlp.leftShift;
-			computeSequenceDiv(*maxRecord);
-			detectedOverlaps.push_back(maxRecord->ovlp);
+			addOverlap(*maxRecord, extLen);
 		}
 	}
 
@@ -346,9 +492,10 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 }
 
 
+
 //pre-computes sequence-to-kmer divergence function by
 //direct simulation
-void OverlapDetector::preComputeKmerDivergence()
+/*void OverlapDetector::preComputeKmerDivergence()
 {
 	const int NUM_BASES = 1000000;
 	auto simulate = [](float seqDivergence, int numBases)
@@ -372,7 +519,6 @@ void OverlapDetector::preComputeKmerDivergence()
 		float seqDiv = (float)i / 100;
 		float kmerDiv = simulate(seqDiv, NUM_BASES);
 		_seqToKmerDiv.push_back(kmerDiv);
-		//std::cout << seqDiv << " " << kmerDiv << std::endl;
 	}
 }
 
@@ -389,7 +535,7 @@ float OverlapDetector::kmerToSeqDivergence(float kmerDivergence) const
 		}
 	}
 	return seqDiv;
-}
+}*/
 
 float OverlapContainer::meanDivergence()
 {
@@ -598,7 +744,7 @@ void OverlapContainer::loadOverlaps(const std::string& filename)
 
 void OverlapContainer::buildIntervalTree()
 {
-	Logger::get().debug() << "Building interval tree";
+	//Logger::get().debug() << "Building interval tree";
 	for (auto& seqOvlps : _overlapIndex)
 	{
 		std::vector<Interval<OverlapRange*>> intervals;
