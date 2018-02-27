@@ -15,113 +15,99 @@
 #include "../common/disjoint_set.h"
 #include "../common/matrix.h"
 
+#include "../ksw2/ksw2.h"
+
 namespace
 {
-	//banded glocal alignment
-	void pairwiseAlignment(const std::string& seqOne, const std::string& seqTwo,
-						   std::string& outOne, std::string& outTwo, 
-						   int bandWidth)
+	float kswAlign(const std::vector<uint8_t>& tseq, 
+				   const std::vector<uint8_t>& qseq, int matchScore, 
+			   	   int misScore, int gapOpen, int gapExtend, int bandWidth)
 	{
-		static const int32_t MATCH = 5;
-		static const int32_t SUBST = -5;
-		static const int32_t INDEL = -3;
+		//substitution matrix
+		int8_t a = matchScore;
+		int8_t b = misScore < 0 ? misScore : -misScore; // a > 0 and b < 0
+		int8_t subsMat[] = {a, b, b, b, 0, 
+						  	b, a, b, b, 0, 
+						  	b, b, a, b, 0, 
+						  	b, b, b, a, 0, 
+						  	0, 0, 0, 0, 0};
 
-		static const int32_t matchScore[] = {SUBST, MATCH};
-		static const int32_t indelScore[] = {INDEL, 0};
+		//encode as nucleotide ids
+		/*uint8_t nucToId[256];
+		memset(nucToId, 4, 256);
+		nucToId[(uint8_t)'A'] = nucToId[(uint8_t)'a'] = 0; 
+		nucToId[(uint8_t)'C'] = nucToId[(uint8_t)'c'] = 1;
+		nucToId[(uint8_t)'G'] = nucToId[(uint8_t)'g'] = 2; 
+		nucToId[(uint8_t)'T'] = nucToId[(uint8_t)'t'] = 3;*/
 
-		const size_t numRows = seqOne.length() + 1;
-		const size_t numCols = 2 * bandWidth + 1;
+		//uint8_t *ts, *qs;
+		//ts = (uint8_t*)malloc(tseq.size());
+		//qs = (uint8_t*)malloc(qseq.size());
+		//for (size_t i = 0; i < tseq.size(); ++i) ts[i] = nucToId[(uint8_t)tseq[i]];
+		//for (size_t i = 0; i < qseq.size(); ++i) qs[i] = nucToId[(uint8_t)qseq[i]];
 
-		Matrix<char> backtrackMatrix(numRows, numCols);
-		std::vector<int32_t> scoreRowOne(numCols, 0);
-		std::vector<int32_t> scoreRowTwo(numCols, 0);
+		ksw_extz_t ez;
+		memset(&ez, 0, sizeof(ksw_extz_t));
+		const int NUM_NUCL = 5;
+		const int Z_DROP = -1;
+		const int FLAG = KSW_EZ_APPROX_MAX;
+		//ksw_extf2_sse(0, qseq.size(), &qseq[0], tseq.size(), &tseq[0], matchScore,
+		//		 	  misScore, gapOpen, bandWidth, Z_DROP, &ez);
+		ksw_extz2_sse(0, qseq.size(), &qseq[0], tseq.size(), &tseq[0], NUM_NUCL,
+				 	  subsMat, gapOpen, gapExtend, bandWidth, Z_DROP, FLAG, &ez);
+		
+		//decode CIGAR
+		/*std::string strQ;
+		for (auto x : qseq) strQ += "ACGT"[x];
+		std::string strT;
+		for (auto x : tseq) strT += "ACGT"[x];
+		std::string alnQry;
+		std::string alnTrg;*/
 
-
-		for (size_t i = 0; i < numRows; ++i) 
+		size_t posQry = 0;
+		size_t posTrg = 0;
+        int matches = 0;
+		int alnLength = 0;
+		for (size_t i = 0; i < (size_t)ez.n_cigar; ++i)
 		{
-			size_t j = std::max(0, bandWidth - (int)i);
-			backtrackMatrix.at(i, j) = 1;
-		}
-		for (size_t i = 0; i < numCols; ++i) 
-		{
-			backtrackMatrix.at(0, i) = 0;
-		}
+			int size = ez.cigar[i] >> 4;
+			char op = "MID"[ez.cigar[i] & 0xf];
+			alnLength += size;
 
-		//filling DP matrices
-		for (size_t i = 1; i < numRows; ++i)
-		{
-			int leftOverhang = bandWidth - (int)i + 1;
-			int rightOverhand = (int)i + bandWidth - (int)seqTwo.length();
-			size_t colLeft = std::max(0, leftOverhang);
-			size_t colRight = std::min((int)numCols, (int)numCols - rightOverhand);
-
-			for (int j = colLeft; j < (int)colRight; ++j)
+        	if (op == 'M')
 			{
-				size_t twoCoord = j + i - bandWidth;
-				int32_t cross = scoreRowOne[j] + 
-								matchScore[seqOne[i - 1] == seqTwo[twoCoord - 1]];
-				char maxStep = 2;
-				int32_t maxScore = cross;
-
-				if (j < (int)numCols - 1) //up
+				for (size_t i = 0; i < (size_t)size; ++i)
 				{
-					int32_t up = scoreRowOne[j + 1] +
-								 indelScore[twoCoord == seqTwo.length()];
-					if (up > maxScore)
-					{
-						maxStep = 1;
-						maxScore = up;
-					}
+					if (tseq[posTrg + i] == qseq[posQry + i]) ++matches;
 				}
 
-				if (j > 0) //left
-				{
-					int32_t left = scoreRowTwo[j - 1] + 
-								   indelScore[i == seqOne.length()];
-					if (left > maxScore)
-					{
-						maxStep = 0;
-						maxScore = left;
-					}
-				}
-
-				scoreRowTwo[j] = maxScore;
-				backtrackMatrix.at(i, j) = maxStep;
+                //alnQry += strQ.substr(posQry, size);
+                //alnTrg += strT.substr(posTrg, size);
+				posQry += size;
+				posTrg += size;
 			}
-			scoreRowOne.swap(scoreRowTwo);
+            else if (op == 'I')
+			{
+                //alnQry += strQ.substr(posQry, size);
+                //alnTrg += std::string(size, '-');
+                posQry += size;
+			}
+            else //D
+			{
+                //alnQry += std::string(size, '-');
+                //alnTrg += strT.substr(posTrg, size);
+				posTrg += size;
+			}
 		}
-
-		//backtrack
-		outOne.reserve(seqOne.length() * 3 / 2);
-		outTwo.reserve(seqTwo.length() * 3 / 2);
-
-		int i = numRows - 1;
-		int j = bandWidth - (int)numRows + (int)seqTwo.length() + 1;
-		while (i != 0 || j != bandWidth) 
+		/*for (size_t i = 0; i < alnTrg.size() / 100 + 1; ++i)
 		{
-			size_t twoCoord = j + i - bandWidth;
-			if(backtrackMatrix.at(i, j) == 1) //up
-			{
-				outOne += seqOne[i - 1];
-				outTwo += '-';
-				i -= 1;
-				j += 1;
-			}
-			else if (backtrackMatrix.at(i, j) == 0) //left
-			{
-				outOne += '-';
-				outTwo += seqTwo[twoCoord - 1];
-				j -= 1;
-			}
-			else	//cross
-			{
-				outOne += seqOne[i - 1];
-				outTwo += seqTwo[twoCoord - 1];
-				i -= 1;
-			}
-		}
-		std::reverse(outOne.begin(), outOne.end());
-		std::reverse(outTwo.begin(), outTwo.end());
+			std::cout << alnTrg.substr(i * 100, 100) << "\n" 
+				<< alnQry.substr(i * 100, 100) << "\n\n";
+		}*/
+        float errRate = 1 - float(matches) / alnLength;
+
+		free(ez.cigar);
+		return errRate;
 	}
 }
 
@@ -152,15 +138,15 @@ OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
 	if (0 < curNext - curPrev && curNext - curPrev < _maxJump &&
 		0 < extNext - extPrev && extNext - extPrev < _maxJump)
 	{
-		if (abs((curNext - curPrev) - (extNext - extPrev)) 
-				< _maxJump / CLOSE_JUMP &&
-			curNext - curPrev < _gapSize)
+		float jumpDivergence = abs((curNext - curPrev) - (extNext - extPrev));
+		float jumpLength = ((curNext - curPrev) + (extNext - extPrev)) / 2;
+
+		if (jumpDivergence < _maxJump / CLOSE_JUMP &&
+			jumpLength < _gapSize)
 		{
 			return J_CLOSE;
 		}
-
-		if (abs((curNext - curPrev) - (extNext - extPrev)) 
-			< _maxJump / FAR_JUMP)
+		if (jumpDivergence < _maxJump / FAR_JUMP)
 		{
 			return J_FAR;
 		}
@@ -179,9 +165,9 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp) const
 		return false;
 	}
 
-	float lengthDiff = abs(ovlp.curRange() - ovlp.extRange());
-	float meanLength = (ovlp.curRange() + ovlp.extRange()) / 2.0f;
-	if (lengthDiff > meanLength / OVLP_DIVERGENCE)
+	float ovlpDiff = abs(ovlp.curRange() - ovlp.extRange());
+	float ovlpLength = (ovlp.curRange() + ovlp.extRange()) / 2.0f;
+	if (ovlpDiff > ovlpLength / OVLP_DIVERGENCE)
 	{
 		return false;
 	}
@@ -390,57 +376,51 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	//copmutes sequence divergence rate
 	auto computeSequenceDiv = [this, &fastaRec](DPRecord& rec)
 	{
-		//test with rela pairwise alignment
-		std::string seqA = fastaRec.sequence.substr(rec.ovlp.curBegin, 
-													rec.ovlp.curRange()).str();
-		std::string seqB = _seqContainer.getSeq(rec.ovlp.extId)
-								.substr(rec.ovlp.extBegin, 
-										rec.ovlp.extRange()).str();
-		std::string alnA;
-		std::string alnB;
-		const int bandWidth = abs((int)seqA.length() - 
-								  (int)seqB.length()) + 
-								  		Config::get("maximum_jump");
-		//std::cout << ">>>>>" << std::endl;
-		pairwiseAlignment(seqA, seqB, alnA, alnB, bandWidth);
-		int matches = 0;
-		for (size_t i = 0; i < alnA.size(); ++i)
-		{
-			if (alnA[i] == alnB[i]) ++matches;
-		}
-		float trueDiv = 1 - (float)matches/ alnA.size();
-
 		//kmer divergence
-		std::unordered_set<Kmer> curKmers;
+		/*std::unordered_set<Kmer> curKmers;
 		std::unordered_set<Kmer> extKmers;
+		std::unordered_set<Kmer> allKmers;
 		std::unordered_set<Kmer> sharedKmers;
 		for (auto curKmerPos : IterKmers(fastaRec.sequence, rec.ovlp.curBegin,
 										 rec.ovlp.curRange()))
 		{
 			curKmers.insert(curKmerPos.kmer);
+			allKmers.insert(curKmerPos.kmer);
 		}
 		for (auto extKmerPos : IterKmers(_seqContainer.getSeq(rec.ovlp.extId),
 										 rec.ovlp.extBegin, rec.ovlp.extRange()))
 		{
 			if (curKmers.count(extKmerPos.kmer)) sharedKmers.insert(extKmerPos.kmer);
 			extKmers.insert(extKmerPos.kmer);
+			allKmers.insert(extKmerPos.kmer);
+		}
+		float jaccardIndex = (float)sharedKmers.size() / allKmers.size();
+		float kmerDiv = -1.0f / Parameters::get().kmerSize * 
+						log(2 * jaccardIndex / (1 + jaccardIndex));*/
+		//float kmerDiv = ((float)sharedKmers.size() / curKmers.size() + 
+		//				 (float)sharedKmers.size() / extKmers.size()) / 2;
+		//float kmerDistance = 1 - pow(kmerDiv, 1.0 / Parameters::get().kmerSize);
+
+		std::vector<uint8_t> dnaCur(rec.ovlp.curRange());
+		for (size_t i = 0; i < (size_t)rec.ovlp.curRange(); ++i)
+		{
+			dnaCur[i] = fastaRec.sequence.atRaw(rec.ovlp.curBegin + i);
+		}
+		std::vector<uint8_t> dnaExt(rec.ovlp.extRange());
+		auto extSeq = _seqContainer.getSeq(rec.ovlp.extId);
+		for (size_t i = 0; i < (size_t)rec.ovlp.extRange(); ++i)
+		{
+			dnaExt[i] = extSeq.atRaw(rec.ovlp.extBegin + i);
 		}
 
-		float kmerDiv = ((float)sharedKmers.size() / curKmers.size() + 
-						 (float)sharedKmers.size() / extKmers.size()) / 2;
-		float kmerDistance = 1 - pow(kmerDiv, 1.0 / Parameters::get().kmerSize);
-		
-		if (fabsf(trueDiv - kmerDistance) > 0.05)
-		{
-			for (size_t i = 0; i < alnA.size() / 100 + 1; ++i)
-			{
-				std::cout << alnA.substr(i * 100, 100) << "\n" 
-					<< alnB.substr(i * 100, 100) << "\n\n";
-			}
-		}
-		std::cout << rec.ovlp.curRange() << "\t" << trueDiv 
-			<< "\t" << kmerDistance << std::endl;
-		rec.ovlp.divergence = kmerDistance;
+		int seqDiff = abs((int)dnaCur.size() - (int)dnaExt.size());
+		int bandWidth = seqDiff + 100;
+		float kswDiv = kswAlign(dnaCur, dnaExt, 1, -2, 2, 1, bandWidth);
+		rec.ovlp.divergence = kswDiv;
+
+		//std::cout << rec.ovlp.curRange()
+		//	<< "\t" << div1500 << "\t" << div500 << "\t" << kswDiv << std::endl;
+
 	};
 	
 	std::vector<OverlapRange> detectedOverlaps;

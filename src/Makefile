@@ -1,6 +1,7 @@
 .PHONY: all clean debug profile
 
-CXXFLAGS += -Wall -pthread -std=c++11 -g
+CXXFLAGS += -Wall -Wextra -pthread -std=c++11 -g
+CFLAGS += -Wall -Wextra -march=native -g -O2
 LDFLAGS += -pthread -std=c++11 -rdynamic
 
 ASSEMBLE_BIN := ${BIN_DIR}/flye-assemble
@@ -19,23 +20,28 @@ debug: flye-repeat flye-polish flye-assemble
 
 
 #sequence module
-sequence_obj := ${patsubst %.cpp,%.o,${wildcard sequence/*.cpp}}
+sequence_obj := ${patsubst %.cpp,%.o,${wildcard sequence/*.cpp}} 
 
-sequence/%.o: sequence/%.cpp sequence/*.h common/*h
+ksw2_obj := ${patsubst %.c,%.o,${wildcard ksw2/*.c}}
+
+sequence/%.o: sequence/%.cpp sequence/%.c sequence/*.h common/*h
 	${CXX} -c ${CXXFLAGS} $< -o $@
+
+ksw2/%.o: ksw2/%.c ksw2/*h
+	${CXX} -c ${CFLAGS} $< -o $@
 
 #flye-assemble module
 assemble_obj := ${patsubst %.cpp,%.o,${wildcard assemble/*.cpp}}
-flye-assemble: ${assemble_obj} ${sequence_obj}
-	${CXX} ${assemble_obj} ${sequence_obj} -o ${ASSEMBLE_BIN} ${LDFLAGS}
+flye-assemble: ${assemble_obj} ${sequence_obj} ${ksw2_obj}
+	${CXX} ${assemble_obj} ${sequence_obj} ${ksw2_obj} -o ${ASSEMBLE_BIN} ${LDFLAGS}
 
 assemble/%.o: assemble/%.cpp assemble/*.h sequence/*.h common/*h
 	${CXX} -c ${CXXFLAGS} $< -o $@
 
 #flye-repeat module
 repeat_obj := ${patsubst %.cpp,%.o,${wildcard repeat_graph/*.cpp}}
-flye-repeat: ${repeat_obj} ${sequence_obj}
-	${CXX} ${repeat_obj} ${sequence_obj} -o ${REPEAT_BIN} ${LDFLAGS}
+flye-repeat: ${repeat_obj} ${sequence_obj} ${ksw2_obj}
+	${CXX} ${repeat_obj} ${sequence_obj} ${ksw2_obj} -o ${REPEAT_BIN} ${LDFLAGS}
 
 repeat_graph/%.o: repeat_graph/%.cpp repeat_graph/*.h sequence/*.h common/*.h
 	${CXX} -c ${CXXFLAGS} $< -o $@
@@ -52,6 +58,7 @@ polishing/%.o: polishing/%.cpp polishing/*.h common/*h
 
 clean:
 	-rm ${repeat_obj}
+	-rm ${ksw2_obj}
 	-rm ${sequence_obj}
 	-rm ${assemble_obj}
 	-rm ${polish_obj}
