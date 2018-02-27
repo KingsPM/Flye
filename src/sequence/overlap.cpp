@@ -375,6 +375,31 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	//copmutes sequence divergence rate
 	auto computeSequenceDiv = [this, &fastaRec](DPRecord& rec)
 	{
+		//kmer divergence
+		/*std::unordered_set<Kmer> curKmers;
+		std::unordered_set<Kmer> extKmers;
+		std::unordered_set<Kmer> allKmers;
+		std::unordered_set<Kmer> sharedKmers;
+		for (auto curKmerPos : IterKmers(fastaRec.sequence, rec.ovlp.curBegin,
+										 rec.ovlp.curRange()))
+		{
+			curKmers.insert(curKmerPos.kmer);
+			allKmers.insert(curKmerPos.kmer);
+		}
+		for (auto extKmerPos : IterKmers(_seqContainer.getSeq(rec.ovlp.extId),
+										 rec.ovlp.extBegin, rec.ovlp.extRange()))
+		{
+			if (curKmers.count(extKmerPos.kmer)) sharedKmers.insert(extKmerPos.kmer);
+			extKmers.insert(extKmerPos.kmer);
+			allKmers.insert(extKmerPos.kmer);
+		}
+		float jaccardIndex = (float)sharedKmers.size() / allKmers.size();
+		float kmerDiv = -1.0f / Parameters::get().kmerSize * 
+						log(2 * jaccardIndex / (1 + jaccardIndex));*/
+		//float kmerDiv = ((float)sharedKmers.size() / curKmers.size() + 
+		//				 (float)sharedKmers.size() / extKmers.size()) / 2;
+		//float kmerDistance = 1 - pow(kmerDiv, 1.0 / Parameters::get().kmerSize);
+
 		std::vector<uint8_t> dnaCur(rec.ovlp.curRange());
 		for (size_t i = 0; i < (size_t)rec.ovlp.curRange(); ++i)
 		{
