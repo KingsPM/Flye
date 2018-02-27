@@ -11,6 +11,7 @@
 #include <algorithm>
 
 //Immutable dna sequence class
+//Constructors/destructors are not thread-safe!
 class DnaSequence
 {
 public:
