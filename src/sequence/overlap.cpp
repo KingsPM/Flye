@@ -472,51 +472,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 }
 
 
-
-//pre-computes sequence-to-kmer divergence function by
-//direct simulation
-/*void OverlapDetector::preComputeKmerDivergence()
-{
-	const int NUM_BASES = 1000000;
-	auto simulate = [](float seqDivergence, int numBases)
-	{
-		std::vector<char> bases(numBases, true);
-		for (size_t i = 0; i < (size_t)(seqDivergence * numBases); ++i)
-		{
-			size_t pos = random() % (NUM_BASES - Parameters::get().kmerSize);
-			for (size_t j = 0; j < Parameters::get().kmerSize; ++j)
-			{
-				bases[pos + j] = 0;
-			}
-		}
-		size_t corrupted = false;
-		for (auto c : bases) if (!c) ++corrupted;
-		return (float)corrupted / numBases;
-	};
-
-	for (size_t i = 0; i < 50; ++i)
-	{
-		float seqDiv = (float)i / 100;
-		float kmerDiv = simulate(seqDiv, NUM_BASES);
-		_seqToKmerDiv.push_back(kmerDiv);
-	}
-}
-
-float OverlapDetector::kmerToSeqDivergence(float kmerDivergence) const
-{
-	float lowestDiff = std::numeric_limits<float>::max();
-	float seqDiv = 0.0f;
-	for (size_t i = 0; i < _seqToKmerDiv.size(); ++i)
-	{
-		if (fabs(_seqToKmerDiv[i] - kmerDivergence) < lowestDiff)
-		{
-			lowestDiff = fabs(_seqToKmerDiv[i] - kmerDivergence);
-			seqDiv = (float)i / 100;
-		}
-	}
-	return seqDiv;
-}*/
-
 float OverlapContainer::meanDivergence()
 {
 	double sumDiv = 0.0f;

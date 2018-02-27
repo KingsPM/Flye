@@ -74,9 +74,6 @@ void RepeatGraph::build()
 	asmOverlaps.findAllOverlaps();
 	asmOverlaps.buildIntervalTree();
 
-	Logger::get().debug() << "Mean contig-to-contig overlap divergence: " 
-		<< asmOverlaps.meanDivergence();
-
 	this->getGluepoints(asmOverlaps);
 	this->collapseTandems();
 	this->initializeEdges(asmOverlaps);

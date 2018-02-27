@@ -155,7 +155,7 @@ private:
 	const SequenceContainer& _seqContainer;
 	KmerDistribution _kmerDistribution;
 	bool _outputProgress;
-	int _sampleRate;
+	int32_t _sampleRate;
 
 	const size_t INDEX_CHUNK = 32 * 1024 * 1024 / sizeof(ReadPosition);
 	std::vector<ReadPosition*> _memoryChunks;

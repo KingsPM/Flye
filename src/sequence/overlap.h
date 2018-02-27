@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <mutex>
 #include <sstream>
+#include <fstream>
 
 #include <cuckoohash_map.hh>
 #include "IntervalTree.h"
@@ -170,7 +171,6 @@ struct OverlapRange
 
 	int32_t score;
 	float divergence;
-
 	std::vector<std::pair<int32_t, int32_t>> kmerMatches;
 };
 
@@ -190,15 +190,13 @@ public:
 		_keepAlignment(keepAlignment),
 		_vertexIndex(vertexIndex),
 		_seqContainer(seqContainer)
-	{
-		//this->preComputeKmerDivergence();
-	}
+	{}
 
 	std::vector<OverlapRange> 
 	getSeqOverlaps(const FastaRecord& fastaRec, bool uniqueExtensions) const;
-	void setDumpFile(const std::string& dumpFile)
+	void setDumpFile(const std::string& file)
 	{
-		_dumpFile.open(dumpFile);
+		_dumpFile.open(file);
 	}
 
 private:
@@ -211,10 +209,7 @@ private:
 	JumpRes jumpTest(int32_t currentPrev, int32_t currentNext,
 				     int32_t extensionPrev, int32_t extensionNext) const;
 
-	//void  preComputeKmerDivergence();
-	//float kmerToSeqDivergence(float kmerDivergence) const;
-	std::vector<float> _seqToKmerDiv;
-
+	mutable std::ofstream _dumpFile;
 	const int _maxJump;
 	const int _minOverlap;
 	const int _maxOverhang;
@@ -225,7 +220,6 @@ private:
 
 	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;
-	mutable std::ofstream _dumpFile;
 };
 
 
@@ -245,12 +239,12 @@ public:
 
 	//void saveOverlaps(const std::string& filename);
 	//void loadOverlaps(const std::string& filename);
+	float meanDivergence();
 
 	void findAllOverlaps();
 	std::vector<OverlapRange> seqOverlaps(FastaRecord::Id readId) const;
 	std::vector<OverlapRange> lazySeqOverlaps(FastaRecord::Id readId);
 	const OverlapIndex& getOverlapIndex() const {return _overlapIndex;}
-	float meanDivergence();
 
 	void buildIntervalTree();
 	std::vector<Interval<OverlapRange*>> 

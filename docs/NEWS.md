@@ -1,4 +1,14 @@
-Flye 2.3 (04 Jan 2017)
+Flye 2.3.2 (19 Feb 2018)
+========================
+* Better contiguity for larger genome assemblies
+* Improvements in corrected reads mode
+* Various bugfixes
+
+Flye 2.3.1 (13 Jan 2018)
+========================
+* Minor release with a few bugs fixed
+
+Flye 2.3 (04 Jan 2018)
 ======================
 
 * ABruijn 2.x branch has been renamed to Flye, highlighting many substantial algorithmic changes

@@ -270,9 +270,6 @@ int main(int argc, char** argv)
 	extender.assembleContigs(singletonReads);
 	vertexIndex.clear();
 
-	Logger::get().debug() << "Mean read-to-read overlap divergence: " 
-		<< readOverlaps.meanDivergence();
-
 	ConsensusGenerator consGen;
 	auto contigsFasta = consGen.generateConsensuses(extender.getContigPaths());
 	SequenceContainer::writeFasta(contigsFasta, outAssembly);

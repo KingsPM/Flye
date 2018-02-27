@@ -64,7 +64,7 @@ The original dataset is available at the
 [PacBio website](https://github.com/PacificBiosciences/DevNet/wiki/E.-coli-Bacterial-Assembly).
 We coverted the raw ```bas.h5``` file to the FASTA format for the convenience.
 
-    wget https://github.com/fenderglass/datasets/raw/master/pacbio/E.coli_PacBio_40x.fasta
+    wget https://zenodo.org/record/1172816/files/E.coli_PacBio_40x.fasta
 	flye --pacbio-raw E.coli_PacBio_40x.fasta --out-dir out_pacbio --genome-size 5m --threads 4
 
 with ```5m``` being the expected genome size, the threads argument being optional 
@@ -76,7 +76,7 @@ where the assembly results will be placed.
 The dataset was originally released by the 
 [Loman lab](http://lab.loman.net/2015/09/24/first-sqk-map-006-experiment/).
 
-    wget https://github.com/fenderglass/datasets/raw/master/ont/Loman_E.coli_MAP006-1_2D_50x.fasta
+    wget https://zenodo.org/record/1172816/files/Loman_E.coli_MAP006-1_2D_50x.fasta
 	flye --nano-raw Loman_E.coli_MAP006-1_2D_50x.fasta --out-dir out_nano --genome-size 5m --threads 4
 
 
@@ -173,7 +173,7 @@ The final assembly graph is output into the ```assembly_graph.dot``` file.
 It could be visualized using [Graphviz](https://graphviz.gitlab.io/): 
 ```dot -Tpng -O assembly_graph.dot```. The edges in this graph 
 represent genomic sequences, and nodes simply serve
-as junctions. The genoimc chromosomes traverse this graph (in an unknown way) 
+as junctions. The genomic chromosomes traverse this graph (in an unknown way) 
 so as each unique edge is covered exactly once. The genomic repeats that were not
 resolved are collapsed into the corresponding edges in the graph
 (therefore genome structure remain umbigious).
@@ -202,7 +202,7 @@ assembly graphs could be found in ```2-repeat``` directory.
 
 ## <a name="output"></a> Contigs/scaffolds output
 
-Each contig is formed by a single uniqe edge and possibly multiple repetitive
+Each contig is formed by a single unique edge and possibly multiple repetitive
 edges and correponds to a genomic path through the graph.
 Final contigs are output into the "contigs.fasta" file. Sometimes it is possible to
 further order some contigs based on the assembly graph structure. In this case,
@@ -242,10 +242,10 @@ computational node. The more detailed benchmarks are below.
 
 ## <a name="algorithm"></a> Algorithm Description
 
-This is a brief description of the Flye algorithm. Plase refer to the manuscript
+This is a brief description of the Flye algorithm. Please refer to the manuscript
 for more detailed information. The assembly pipeline is organized as follows:
 
-* Kmer counting / erronoeus kmer pre-filtering
+* Kmer counting / erroneous kmer pre-filtering
 * Solid kmer selection (kmers with sufficient frequency, which are unlikely to be erroneous)
 * Finding read overlaps based on the A-Bruijn graph
 * Detection of chimeric sequences

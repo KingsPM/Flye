@@ -167,12 +167,10 @@ void ReadAligner::alignReads()
 	std::mutex indexMutex;
 	int numAligned = 0;
 	int64_t alignedLength = 0;
-	double divergenceSum = 0;
-	int numOverlaps = 0;
 	std::function<void(const FastaRecord::Id&)> alignRead = 
 	[this, &indexMutex, &numAligned, &readsOverlaps, 
-		&idToSegment, &pathsContainer, &alignedLength, 
-		&divergenceSum, &numOverlaps] (const FastaRecord::Id& seqId)
+		&idToSegment, &pathsContainer, &alignedLength] 
+	(const FastaRecord::Id& seqId)
 	{
 		auto overlaps = readsOverlaps.seqOverlaps(seqId);
 		std::vector<EdgeAlignment> alignments;
@@ -180,8 +178,6 @@ void ReadAligner::alignReads()
 		{
 			alignments.push_back({ovlp, idToSegment[ovlp.extId].first,
 								  idToSegment[ovlp.extId].second});
-			divergenceSum += ovlp.divergence;
-			++numOverlaps;
 		}
 		std::sort(alignments.begin(), alignments.end(),
 		  [](const EdgeAlignment& e1, const EdgeAlignment& e2)
@@ -234,8 +230,6 @@ void ReadAligner::alignReads()
 		<< allQueries.size();
 	Logger::get().debug() << "Aligned length " << alignedLength << " / " 
 		<< totalLength << " " << (float)alignedLength / totalLength;
-	Logger::get().debug() << "Mean graph-to-read overlap divergence: " 
-		<< divergenceSum / numOverlaps;
 }
 
 //updates alignments with respect to the new graph

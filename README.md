@@ -1,7 +1,7 @@
 Flye assembler (successor of ABruijn)
 =====================================
 
-### Version: 2.3.1
+### Version: 2.3.2
 
 Flye is a de novo assembler for long and noisy reads, such as
 those produced by PacBio and Oxford Nanopore Technologies.
