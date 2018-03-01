@@ -49,7 +49,7 @@ namespace
 		memset(&ez, 0, sizeof(ksw_extz_t));
 		const int NUM_NUCL = 5;
 		const int Z_DROP = -1;
-		const int FLAG = KSW_EZ_APPROX_MAX;
+		const int FLAG = KSW_EZ_APPROX_MAX | KSW_EZ_APPROX_DROP;
 		//ksw_extf2_sse(0, qseq.size(), &qseq[0], tseq.size(), &tseq[0], matchScore,
 		//		 	  misScore, gapOpen, bandWidth, Z_DROP, &ez);
 		ksw_extz2_sse(0, qseq.size(), &qseq[0], tseq.size(), &tseq[0], NUM_NUCL,

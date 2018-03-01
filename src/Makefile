@@ -1,8 +1,8 @@
 .PHONY: all clean debug profile
 
-CXXFLAGS += -Wall -Wextra -pthread -std=c++11 -g
-CFLAGS += -Wall -Wextra -march=native -g -O2
-LDFLAGS += -pthread -std=c++11 -rdynamic
+CXXFLAGS += -Wall -Wextra -pthread -std=c++11 -g -march=native
+CFLAGS += -Wall -Wextra -march=native -g
+LDFLAGS += -pthread -std=c++11 -rdynamic -march=native
 
 ASSEMBLE_BIN := ${BIN_DIR}/flye-assemble
 REPEAT_BIN := ${BIN_DIR}/flye-repeat
@@ -13,22 +13,25 @@ profile: LDFLAGS += -pg
 profile: release
 
 release: CXXFLAGS += -D_LOG -O3 -DNDEBUG
+release: CFLAGS += -D_LOG -O2 -DNDEBUG
 release: flye-repeat flye-polish flye-assemble
 
 debug: CXXFLAGS += -Og -D_GLIBCXX_DEBUG -D_DEBUG -D_DEBUG_LOG -D_LOG
+debug: CFLAGS += -Og -D_GLIBCXX_DEBUG -D_DEBUG -D_DEBUG_LOG -D_LOG
 debug: flye-repeat flye-polish flye-assemble
 
 
 #sequence module
 sequence_obj := ${patsubst %.cpp,%.o,${wildcard sequence/*.cpp}} 
 
-ksw2_obj := ${patsubst %.c,%.o,${wildcard ksw2/*.c}}
-
 sequence/%.o: sequence/%.cpp sequence/%.c sequence/*.h common/*h
 	${CXX} -c ${CXXFLAGS} $< -o $@
 
+#ksw2 library
+ksw2_obj := ${patsubst %.c,%.o,${wildcard ksw2/*.c}}
+
 ksw2/%.o: ksw2/%.c ksw2/*h
-	${CXX} -c ${CFLAGS} $< -o $@
+	${CC} -c ${CFLAGS} $< -o $@
 
 #flye-assemble module
 assemble_obj := ${patsubst %.cpp,%.o,${wildcard assemble/*.cpp}}
