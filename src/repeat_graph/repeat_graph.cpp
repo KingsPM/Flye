@@ -66,10 +66,10 @@ void RepeatGraph::build()
 								  Parameters::get().minimumOverlap,
 								  /*no overhang*/ 0, 
 								  (int)Config::get("repeat_graph_gap"),
-								  0.15f,
+						 		  (float)Config::get("repeat_graph_max_divergence"),
 								  /*keep alignment*/ true);
 
-	asmOverlapper.setDumpFile("../contigs-contigs-div.txt");
+	//asmOverlapper.setDumpFile("../contigs-contigs-div.txt");
 	OverlapContainer asmOverlaps(asmOverlapper, _asmSeqs, /*only max*/ false);
 	asmOverlaps.findAllOverlaps();
 	asmOverlaps.buildIntervalTree();

@@ -146,10 +146,10 @@ void ReadAligner::alignReads()
 									(int)Config::get("max_separation"),
 									/*no overhang*/0,
 									(int)Config::get("read_align_gap"),
-									0.25f,
+						 			(float)Config::get("read_align_max_divergence"),
 									/*keep alignment*/ false);
 
-	readsOverlapper.setDumpFile("../graph-reads-div.txt");
+	//readsOverlapper.setDumpFile("../graph-reads-div.txt");
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs, 
 								   /*onlyMax*/ false);
 
